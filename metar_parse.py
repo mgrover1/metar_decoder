@@ -78,6 +78,9 @@ def parse_metar(metar_text):
         df['skyc1'] = [np.nan]
         df['skyc2'] = [np.nan]
         df['skyc3'] = [np.nan]
+    elif tree.skyc.text.strip()[0:2] == 'VV':
+        df['skyc1'] = 'VV'
+        df['skylev1'] = tree.skyc.text.strip()[2:]
     else:
         skyc = [np.nan, np.nan, np.nan, np.nan]
         skyc[0:len((tree.skyc.text.strip()).split())] = tree.skyc.text.strip().split()
@@ -115,7 +118,7 @@ def parse_metar(metar_text):
         df['cloudcover'] = 4
     elif df['skyc1'].values[0] == 'BKN':
         df['cloudcover'] = 6
-    elif df['skyc1'].values[0] == 'OVC':
+    elif df['skyc1'].values[0] == ('OVC' or 'VV'):
         df['cloudcover'] = 8
     else:
         df['cloudcover'] = np.nan

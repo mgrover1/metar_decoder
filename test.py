@@ -51,6 +51,11 @@ def test6():
                 "PK WND 20029/2253 WSHFT 2318 RAE08 SLPNO VIRGA S MTNS OBSC NE-SE "
                 "P0001 60014 T01000022 10144 20089 53014")
     assert df.temp.values == 10
+def test7():
+    df = parse_metar("METAR CYYT 081100Z 00000KT 0SM FG VV000 07/07 A3019 RMK F8 SLP224")
+    assert df.wx1.values == 'FG'
+    assert df.skyc1.values == 'VV'
+    assert df.cloudcover.values == 8
 
 if __name__ == '__main__':
     test1()
