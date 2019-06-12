@@ -91,17 +91,69 @@ def altimeter_to_station_pressure(altim, elev):
 
     return station_pres
 
-
-from metpy.units import units
-test = altimeter_to_station_pressure(1054.4*units.hPa, 1235*units.m)
-
 def altimeter_to_slp(altim, elev, T):
-    """
+    """ Convert the altimeter setting to sea level pressure.
 
-    :param altim:
-    :param elev:
-    :param T:
-    :return:
+    This function is useful for working with METARs since most will provide
+    altimeter values, but not sea level pressure, which is often plotted
+    on surface maps.
+
+    The following definitions of altimeter setting, station pressure, and
+    sea level pressure are taken from the Federal Meteorology Handbook (2013)
+    p.11-1
+
+    Altimeter setting is the pressure value to which an aircraft altimeter scale
+    is set so that it will indicate the altitude above mean sea level of an aircraft
+    on the ground at the location for which the value is determined. It assumes a standard
+    atmosphere.
+
+    Station pressure is the atmospheric pressure at the designated station elevation.
+
+    Sea-level pressure is a pressure value obtained by the theoretical reduction of barometric
+    pressure to sea level. It is assumed that atmosphere extends to sea level below the station
+    and that the properties of the atmosphere are related to conditions observed at the station.
+    This value is recorded by some surface observation stations, but not all. If the value is
+    recorded, it can be found in the remarks section.
+
+    Finding the sea level pressure is helpful for plotting purposes and different calculations.
+
+    Parameters
+    ----------
+    altim : float or int with units
+            The altimeter setting value is defined by the METAR or other observation,
+            with units of inches of mercury (in Hg) or millibars (hPa)
+    elev  : float or int with units
+            Elevation of the station measuring pressure. Often times measured in meters
+    T     : float or int with units
+            Temperature at the station measured in either Celsius or Fahrenheit
+
+    Returns
+    -------
+
+    sea_level_pressure: float
+            The sea level pressur in hPa, which is often times plotted on surface maps
+            and makes pressure values easier to compare between different stations
+
+
+    See Also
+    --------
+    altimeter_to_station_pressure
+
+    Notes
+    -------
+    This function is implemented using the following equations from Wallace and Hobbs (1977)
+
+    Equatino 2.29
+    .. math:: \Delta z = Z_{2} - Z_{1} = \frac{R_{d} \bar T_{v}}{g_0}ln\left(\frac{p_{1}}{p_{2}} \right) = \bar H ln \left (\frac {p_{1}}{p_{2}} \right)
+
+    Equation 2.31
+    .. math:: p_{0} = p_{g}exp \left(\frac{Z_{g}}{\bar H} \right) = p_{g} exp \left(\frac{g_{0}Z_{g}}{R_{d}\bar T_{v}} \right)
+
+    Then by subsituting Delta Z for Z_{g} in Equation 2.31, we get
+
+    .. math:: p_{sea level} = p_{station} exp\left(\frac{\Delta z}{H}\right)
+
+    where Delta_Z is the elevation in meters and H = \frac{R_{d}T}{g}
     """
     #Bring in the neccessary libraries
     from metpy.units import units
@@ -124,17 +176,3 @@ def altimeter_to_slp(altim, elev, T):
     psl = p * exp(z/H)
 
     return psl
-
-test = altimeter_to_slp(1054.4*units.hPa, 1235*units.m, 25*units.degC)
-print(test)
-
-
-
-
-
-
-
-
-
-    
-
