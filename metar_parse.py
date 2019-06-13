@@ -15,9 +15,46 @@ def parse_metar(metar_text):
     from metar_decode import parse
     from metpy.units import units
     from process_stations import StationLookup
+    from altimeter_slp_conversion import altimeter_to_slp
+    import warnings
+    warnings.filterwarnings('ignore', 'Pandas doesn\'t allow columns to be created', UserWarning)
 
     # Build a dataframe that will store the data
-    df = pd.DataFrame()
+    #Set the column names
+    col_names = ['station_id', 'lat', 'lon', 'elev', 'date_time', 'day',
+    'time_utc', 'time_utc', 'wind_dir', 'wind_spd', 'wx1', 'wx2', 'skyc1',
+    'skylev1', 'skyc2', 'skylev2', 'skyc3', 'skylev3', 'skyc4', 'skylev4',
+    'cloudcover', 'temp', 'dewp', 'altim', 'slp']
+
+    #Determine the units for the dataframe
+    col_units = {
+    'station_id': None,
+    'lat': 'degrees',
+    'lon': 'degrees',
+    'elev': 'meters',
+    'date_time': None,
+    'day': None,
+    'time_utc': None,
+    'wind_dir': 'degrees',
+    'wind_spd': 'kts',
+    'wx1': None,
+    'wx2': None,
+    'skyc1': None,
+    'skylev1': 'feet',
+    'skyc2': None,
+    'skylev2': 'feet',
+    'skyc3': None,
+    'skylev3': 'feet',
+    'skyc4': None,
+    'skylev4:': None,
+    'cloudcover': None,
+    'temp': 'degC',
+    'dewp': 'degC',
+    'altim': 'inHg',
+    'slp': 'hPa'}
+
+    df = pd.DataFrame(columns=col_names)
+    df.units = col_units
 
     #Setup the dictionary containing the latitude and longitude data for stations
     master = StationLookup().sources[0][1]
@@ -36,9 +73,11 @@ def parse_metar(metar_text):
         try:
             df['lat'] = [master[tree.siteid.text.strip()].latitude]
             df['lon'] = [master[tree.siteid.text.strip()].longitude]
+            df['elev'] = [master[tree.siteid.text.strip()].altitude]
         except:
             df['lat'] = [np.nan]
             df['lon'] = [np.nan]
+            df['elev'] = [np.nan]
 
     # Set the datetime
     if tree.datetime.text == '':
@@ -74,11 +113,12 @@ def parse_metar(metar_text):
         df['wx2'] = [wx[1]]
 
     # Set the sky conditions
+
     if tree.skyc.text == '':
         df['skyc1'] = [np.nan]
         df['skyc2'] = [np.nan]
         df['skyc3'] = [np.nan]
-    elif tree.skyc.text.strip()[0:2] == 'VV':
+    elif tree.skyc.text[1:3] == 'VV':
         df['skyc1'] = 'VV'
         df['skylev1'] = tree.skyc.text.strip()[2:]
     else:
@@ -86,26 +126,26 @@ def parse_metar(metar_text):
         skyc[0:len((tree.skyc.text.strip()).split())] = tree.skyc.text.strip().split()
         try:
             df['skyc1'] = [skyc[0][0:3]]
-            df['skylev1'] = [float(skyc[0][3:])*100]
+            df['skylev1'] = [(float(skyc[0][3:])*100)]
 
         except:
             df['skyc1'] = [np.nan]
             df['skylev1'] = [np.nan]
         try:
             df['skyc2'] = [skyc[1][0:3]]
-            df['skylev2'] = [float(skyc[1][3:])*100]
+            df['skylev2'] = [(float(skyc[1][3:])*100)]
         except:
             df['skyc2'] = [np.nan]
             df['skylev2'] = [np.nan]
         try:
             df['skyc3'] = [skyc[2][0:3]]
-            df['skylev3'] = [float(skyc[2][3:])*100]
+            df['skylev3'] = [(float(skyc[2][3:])*100)]
         except:
             df['skyc3'] = [np.nan]
             df['skylev3'] = [np.nan]
         try:
             df['skyc4'] = [skyc[3][0:3]]
-            df['skylev4'] = [float(skyc[3][3:])*100]
+            df['skylev4'] = [(float(skyc[3][3:])*100)]
         except:
             df['skyc4'] = [np.nan]
             df['skylev4'] = [np.nan]
@@ -144,9 +184,16 @@ def parse_metar(metar_text):
         df['altim'] = [np.nan]
     else:
         if (float(tree.altim.text[2:6])) > 1100:
-            df['altim'] = [int((float(tree.altim.text[2:6]) / 100) * units("inHg").to('hPa').magnitude)]
+            df['altim'] = [((float(tree.altim.text[2:6]) / 100))]
         else:
-            df['altim'] = [int(tree.altim.text[2:6])]
+            df['altim'] = [int(tree.altim.text[2:6])*units.hPa.to('inHg').magnitude]
+        try:
+            df['slp'] =  [int(altimeter_to_slp(
+            df.altim[0]*units(df.units['altim']),
+            df.elev[0]*units(df.units['elev']),
+            df.temp[0]*units(df.units['temp'])).magnitude)]
+        except:
+            df['slp'] = [np.nan]
     df.index = df.station_id
-    return df
 
+    return df
