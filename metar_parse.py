@@ -1,9 +1,17 @@
-def parse_metar(metar_text):
+def parse_metar(metar_text, stations_df, create_df):
     """Takes in a metar file, in a text form, and creates a pandas
     dataframe that can be easily subset
 
     Input:
     metar_text = string with the METAR data
+    create_df = True or False
+        True creates a Pandas dataframe as the Output
+        False creates a list of lists containing the values in the following order:
+
+        [station_id, latitude, longitude, elevation, date_time, day, time_utc,
+        wind_direction, wind_speed, wxsymbol1, wxsymbol2, skycover1, skylevel1,
+        skycover2, skylevel2, skycover3, skylevel3, skycover4, skylevel4,
+        cloudcover, temperature, dewpoint, altimeter_value, sea_level_pressure]
 
     Output:
     Pandas Dataframe that can be subset easily
@@ -19,181 +27,197 @@ def parse_metar(metar_text):
     import warnings
     warnings.filterwarnings('ignore', 'Pandas doesn\'t allow columns to be created', UserWarning)
 
-    # Build a dataframe that will store the data
-    #Set the column names
-    col_names = ['station_id', 'lat', 'lon', 'elev', 'date_time', 'day',
-    'time_utc', 'time_utc', 'wind_dir', 'wind_spd', 'wx1', 'wx2', 'skyc1',
-    'skylev1', 'skyc2', 'skylev2', 'skyc3', 'skylev3', 'skyc4', 'skylev4',
-    'cloudcover', 'temp', 'dewp', 'altim', 'slp']
+    #Create lists for each of the variables
+    station_id, lat, lon, elev, date_time, day, time_utc, wind_dir, wind_spd, wx1, wx2, \
+    skyc1, skylev1, skyc2, skylev2, skyc3, skylev3, skyc4, skylev4, cloudcover, temp, dewp, \
+    altim, slp = [],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]
 
-    #Determine the units for the dataframe
-    col_units = {
-    'station_id': None,
-    'lat': 'degrees',
-    'lon': 'degrees',
-    'elev': 'meters',
-    'date_time': None,
-    'day': None,
-    'time_utc': None,
-    'wind_dir': 'degrees',
-    'wind_spd': 'kts',
-    'wx1': None,
-    'wx2': None,
-    'skyc1': None,
-    'skylev1': 'feet',
-    'skyc2': None,
-    'skylev2': 'feet',
-    'skyc3': None,
-    'skylev3': 'feet',
-    'skyc4': None,
-    'skylev4:': None,
-    'cloudcover': None,
-    'temp': 'degC',
-    'dewp': 'degC',
-    'altim': 'inHg',
-    'slp': 'hPa'}
-
-    df = pd.DataFrame(columns=col_names)
-    df.units = col_units
-
-    #Setup the dictionary containing the latitude and longitude data for stations
-    master = StationLookup().sources[0][1]
-    for station in StationLookup().sources:
-        master = {**master, **station[1]}
+    master = stations_df
+    #Create a dictionary with all the station metadata
+    #master = StationLookup().sources[0][1]
+    #for station in StationLookup().sources:
+    #    master = {**master, **station[1]}
 
     # Decode the data using the parser (built using Canopy)
     tree = parse(metar_text)
 
-    # Set the station id
+    #Station ID, Latitude, Longitude, and Elevation
     if tree.siteid.text == '':
-        df['station_id'] = [np.nan]
+        station_id.append(np.nan)
     else:
-        df['station_id'] = [tree.siteid.text]
+        station_id.append(tree.siteid.text)
         #Extract the latitude and longitude values from "master" dictionary
         try:
-            df['lat'] = [master[tree.siteid.text.strip()].latitude]
-            df['lon'] = [master[tree.siteid.text.strip()].longitude]
-            df['elev'] = [master[tree.siteid.text.strip()].altitude]
+            lat.append(master[tree.siteid.text.strip()].latitude)
+            lon.append(master[tree.siteid.text.strip()].longitude)
+            elev.append(master[tree.siteid.text.strip()].altitude)
         except:
-            df['lat'] = [np.nan]
-            df['lon'] = [np.nan]
-            df['elev'] = [np.nan]
+            lat.append(np.nan)
+            lon.append(np.nan)
+            elev.append(np.nan)
 
-    # Set the datetime
+    # Set the datetime, day, and time_utc
     if tree.datetime.text == '':
-        df['date_time'] = [np.nan]
-        df['day'] = [np.nan]
-        df['time_utc'] = [np.nan]
+        datetime.append(np.nan)
+        day.append(np.nan)
+        time_utc.append(np.nan)
     else:
         datetime = tree.datetime.text[:-1]
-        df['date_time'] = [datetime]
-        df['day'] = [int(datetime[0:3])]
-        df['time_utc'] = [int(datetime[3:])]
+        date_time.append(datetime.strip())
+        day.append(int(datetime[0:3]))
+        time_utc.append(int(datetime[3:]))
 
     # Set the wind variables
     if tree.wind.text == ('' or "/////KT"):
-        df['wind_dir'] = [np.nan]
-        df['wind_spd'] = [np.nan]
+        wind_dir.append(np.nan)
+        wind_spd.append(np.nan)
     else:
         if tree.wind.wind_dir.text == ('VRB' or 'VAR'):
-            df['wind_dir'] = [np.nan]
-            df['wind_spd'] = [float(tree.wind.wind_spd.text)]
+            wind_dir.append(np.nan)
+            wind_spd.append(float(tree.wind.wind_spd.text))
         else:
-            df['wind_dir'] = [int(tree.wind.wind_dir.text)]
-            df['wind_spd'] = [int(tree.wind.wind_spd.text)]
+            wind_dir.append(int(tree.wind.wind_dir.text))
+            wind_spd.append(int(tree.wind.wind_spd.text))
 
     # Set the weather symbols
     if tree.curwx.text == '':
-        df['wx1'] = [np.nan]
-        df['wx2'] = [np.nan]
+        wx1.append(np.nan)
+        wx2.append(np.nan)
     else:
         wx = [np.nan, np.nan]
         wx[0:len((tree.curwx.text.strip()).split())] = tree.curwx.text.strip().split()
-        df['wx1'] = [wx[0]]
-        df['wx2'] = [wx[1]]
+        wx1.append(wx[0])
+        wx2.append(wx[1])
 
     # Set the sky conditions
 
     if tree.skyc.text == '':
-        df['skyc1'] = [np.nan]
-        df['skyc2'] = [np.nan]
-        df['skyc3'] = [np.nan]
+        skyc1.append(np.nan)
+        skylev1.append(np.nan)
+        skyc2.append(np.nan)
+        skylev2.append(np.nan)
+        skyc3.append(np.nan)
+        skylev3.append(np.nan)
+        skyc4.append(np.nan)
+        skylev4.append(np.nan)
+
     elif tree.skyc.text[1:3] == 'VV':
-        df['skyc1'] = 'VV'
-        df['skylev1'] = tree.skyc.text.strip()[2:]
+        skyc1.append('VV')
+        skylev1.append(tree.skyc.text.strip()[2:])
     else:
         skyc = [np.nan, np.nan, np.nan, np.nan]
         skyc[0:len((tree.skyc.text.strip()).split())] = tree.skyc.text.strip().split()
         try:
-            df['skyc1'] = [skyc[0][0:3]]
-            df['skylev1'] = [(float(skyc[0][3:])*100)]
+            skyc1.append(skyc[0][0:3])
+            skylev1.append((float(skyc[0][3:])*100))
 
         except:
-            df['skyc1'] = [np.nan]
-            df['skylev1'] = [np.nan]
+            skyc1.append(np.nan)
+            skylev1.append(np.nan)
         try:
-            df['skyc2'] = [skyc[1][0:3]]
-            df['skylev2'] = [(float(skyc[1][3:])*100)]
+            skyc2.append(skyc[1][0:3])
+            skylev2.append((float(skyc[1][3:])*100))
         except:
-            df['skyc2'] = [np.nan]
-            df['skylev2'] = [np.nan]
+            skyc2.append(np.nan)
+            skylev2.append(np.nan)
         try:
-            df['skyc3'] = [skyc[2][0:3]]
-            df['skylev3'] = [(float(skyc[2][3:])*100)]
+            skyc3.append(skyc[2][0:3])
+            skylev3.append((float(skyc[2][3:])*100))
         except:
-            df['skyc3'] = [np.nan]
-            df['skylev3'] = [np.nan]
+            skyc3.append(np.nan)
+            skylev3.append(np.nan)
         try:
-            df['skyc4'] = [skyc[3][0:3]]
-            df['skylev4'] = [(float(skyc[3][3:])*100)]
+            skyc4.append(skyc[3][0:3])
+            skylev4.append((float(skyc[3][3:])*100))
         except:
-            df['skyc4'] = [np.nan]
-            df['skylev4'] = [np.nan]
+            skyc4.append(np.nan)
+            skylev4.append(np.nan)
 
-    if df['skyc1'].values[0] == ('SKC' or 'NCD' or 'CLR' or 'NSC'):
-        df['cloudcover'] = 0
-    elif df['skyc1'].values[0] == 'FEW':
-        df['cloudcover'] = 2
-    elif df['skyc1'].values[0] == 'SCT':
-        df['cloudcover'] = 4
-    elif df['skyc1'].values[0] == 'BKN':
-        df['cloudcover'] = 6
-    elif df['skyc1'].values[0] == ('OVC' or 'VV'):
-        df['cloudcover'] = 8
+    if skyc1[0] == ('SKC' or 'NCD' or 'NSC' or 'CLR'):
+        cloudcover.append(0)
+    elif skyc1[0] == 'FEW':
+        cloudcover.append(2)
+    elif skyc1[0] == 'SCT':
+        cloudcover.append(4)
+    elif skyc1[0] == 'BKN':
+        cloudcover.append(6)
+    elif skyc1[0] == ('OVC' or 'VV'):
+        cloudcover.append(8)
     else:
-        df['cloudcover'] = np.nan
-
-
+        cloudcover.append(np.nan)
 
     # Set the temperature and dewpoint
     if tree.temp_dewp.text == ('' or ' MM/MM'):
-        df['temp'] = [np.nan]
-        df['dewp'] = [np.nan]
+        temp.append(np.nan)
+        dewp.append(np.nan)
     else:
         if "M" in tree.temp_dewp.temp.text:
-            df['temp'] = [(-1 * float(tree.temp_dewp.temp.text[-2:]))]
+            temp.append(-1 * float(tree.temp_dewp.temp.text[-2:]))
         else:
-            df['temp'] = [float(tree.temp_dewp.temp.text[-2:])]
+            temp.append(float(tree.temp_dewp.temp.text[-2:]))
         if "M" in tree.temp_dewp.dewp.text:
-            df['dewp'] = [(-1 * float(tree.temp_dewp.dewp.text[-2:]))]
+            dewp.append(-1 * float(tree.temp_dewp.dewp.text[-2:]))
         else:
-            df['dewp'] = [float(tree.temp_dewp.dewp.text[-2:])]
+            dewp.append(float(tree.temp_dewp.dewp.text[-2:]))
 
-    # Set the altimeter value
+    # Set the altimeter value and sea level pressure
     if tree.altim.text == '':
-        df['altim'] = [np.nan]
+        altim.append(np.nan)
+        slp.append(np.nan)
     else:
         if (float(tree.altim.text[2:6])) > 1100:
-            df['altim'] = [((float(tree.altim.text[2:6]) / 100))]
+            altim.append(float(tree.altim.text[2:6]) / 100)
         else:
-            df['altim'] = [int(tree.altim.text[2:6])*units.hPa.to('inHg').magnitude]
+            altim.append((int(tree.altim.text[2:6])*units.hPa).to('inHg').magnitude)
         try:
-            df['slp'] =  [int(altimeter_to_slp(
-            df.altim[0]*units(df.units['altim']),
-            df.elev[0]*units(df.units['elev']),
-            df.temp[0]*units(df.units['temp'])).magnitude)]
+            slp.append(int(altimeter_to_slp(
+            altim[0]*units('inHg'),
+            elev[0]*units('meters'),
+            temp[0]*units('degC')).magnitude))
         except:
-            df['slp'] = [np.nan]
-    df.index = df.station_id
+            slp.append(np.nan)
 
-    return df
+    if create_df == True:
+        col_units = {
+        'station_id': None,
+        'lat': 'degrees',
+        'lon': 'degrees',
+        'elev': 'meters',
+        'date_time': None,
+        'day': None,
+        'time_utc': None,
+        'wind_dir': 'degrees',
+        'wind_spd': 'kts',
+        'wx1': None,
+        'wx2': None,
+        'skyc1': None,
+        'skylev1': 'feet',
+        'skyc2': None,
+        'skylev2': 'feet',
+        'skyc3': None,
+        'skylev3': 'feet',
+        'skyc4': None,
+        'skylev4:': None,
+        'cloudcover': None,
+        'temp': 'degC',
+        'dewp': 'degC',
+        'altim': 'inHg',
+        'slp': 'hPa'}
+
+        df = pd.DataFrame({'station_id':station_id, 'latitude':lat,
+        'longitude':lon, 'elevation':elev,
+        'date_time':date_time, 'day':day,
+        'time_utc':time_utc, 'wind_direction':wind_dir,
+        'wind_speed':wind_spd,'wx1':wx1, 'wx2':wx2,
+        'skyc1':skyc1, 'skylev1':skylev1,
+        'skyc2':skyc2, 'skylev2':skylev2, 'skyc3':skyc3,
+        'skylev3': skylev3, 'skyc4':skyc4, 'skylev4':skylev4,
+        'cloudcover':cloudcover, 'temperature':temp, 'dewpoint':dewp,
+        'altimeter':altim, 'sea_level_pressure':slp})
+        df.units = col_units
+        df.index = df.station_id
+        return df
+    else:
+        ob = [station_id, lat, lon, elev, date_time, day, time_utc, wind_dir, wind_spd, wx1, wx2,
+        skyc1, skylev1, skyc2, skylev2, skyc3, skylev3, skyc4, skylev4, cloudcover, temp, dewp, altim, slp]
+        return ob
