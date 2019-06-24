@@ -1,0 +1,174 @@
+def text_file_parse(file):
+    """ Takes a text file taken from the NOAA PORT system containing
+    METAR data and creates a dataframe with all the observations
+
+    parameters
+    ----------
+    file: string
+          The path to the file containing the data. It should be extracted
+          from NOAA PORT and NOT be in binary format
+
+    return
+    ---------
+    df : pandas dataframe wtih the station id as the index
+
+    """
+    import pandas as pd
+    from metar_parse import parse_metar
+    from process_stations import StationLookup
+    from datetime import datetime
+    from calculations import altimeter_to_slp
+    from metpy.units import units
+
+    #Function to merge METARs
+    def merge(x, key='     '):
+        tmp = []
+        for i in x:
+            if (i[0:len(key)] != key) and len(tmp):
+                yield ' '.join(tmp)
+                tmp = []
+            if i.startswith(key):
+                i = i[5:]
+            tmp.append(i)
+        if len(tmp):
+            yield ' '.join(tmp)
+
+    #Open the file
+    myfile = open(file)
+
+    #Clean up the file and take out the next line (\n)
+    value = myfile.read().rstrip()
+    list_values = value.split(sep = '\n')
+    list_values = list(filter(None, list_values))
+
+    #Call the merge function and assign the result to the list of metars
+    list_values = list(merge(list_values))
+
+    #Remove the short lines that do not contain METAR observations or contain
+    #METAR observations that lack a robust amount of data
+    metars = []
+    for metar in list_values:
+        if len(metar) > 25:
+            metars.append(metar)
+    else:
+        None
+
+    #Create a dictionary with all the station name, locations, and elevations
+    master = StationLookup().sources[0][1]
+    for station in StationLookup().sources:
+        master = {**master, **station[1]}
+
+    #Setup lists to append the data to
+    station_id = []
+    lat = []
+    lon = []
+    elev = []
+    date_time = []
+    day =[]
+    time_utc = []
+    wind_dir = []
+    wind_spd = []
+    wx1 = []
+    wx2 = []
+    skyc1 = []
+    skylev1 = []
+    skyc2 = []
+    skylev2 = []
+    skyc3 = []
+    skylev3 = []
+    skyc4 = []
+    skylev4 = []
+    cloudcover = []
+    temp = []
+    dewp = []
+    altim = []
+    wx1_wmo = []
+    wx2_wmo = []
+
+    for metar in metars:
+        try:
+            ob = parse_metar(metar, master, False)
+            station_id.append(ob[0][0])
+            lat.append(ob[1][0])
+            lon.append(ob[2][0])
+            elev.append(ob[3][0])
+            date_time.append(ob[4][0])
+            day.append(ob[5][0])
+            time_utc.append(ob[6][0])
+            wind_dir.append(ob[7][0])
+            wind_spd.append(ob[8][0])
+            wx1.append(ob[9][0])
+            wx2.append(ob[10][0])
+            skyc1.append(ob[11][0])
+            skylev1.append(ob[12][0])
+            skyc2.append(ob[13][0])
+            skylev2.append(ob[14][0])
+            skyc3.append(ob[15][0])
+            skylev3.append(ob[16][0])
+            skyc4.append(ob[17][0])
+            skylev4.append(ob[18][0])
+            cloudcover.append(ob[19][0])
+            temp.append(ob[20][0])
+            dewp.append(ob[21][0])
+            altim.append(ob[22][0])
+            wx1_wmo.append(ob[23][0])
+            wx2_wmo.append(ob[24][0])
+
+        except:
+            None
+
+    col_units = {
+    'station_id': None,
+    'latitude': 'degrees',
+    'longitude': 'degrees',
+    'elevation': 'meters',
+    'date_time': None,
+    'day': None,
+    'time_utc': None,
+    'wind_direction': 'degrees',
+    'wind_speed': 'kts',
+    'wx1': None,
+    'wx2': None,
+    'skyc1': None,
+    'skylev1': 'feet',
+    'skyc2': None,
+    'skylev2': 'feet',
+    'skyc3': None,
+    'skylev3': 'feet',
+    'skyc4': None,
+    'skylev4:': None,
+    'cloudcover': None,
+    'temperature': 'degC',
+    'dewpoint': 'degC',
+    'altimeter': 'inHg',
+    'sea_level_pressure': 'hPa',
+    'wx_symbol1_wmo': None,
+    'wx_symbol2_wmo': None}
+
+    df = pd.DataFrame({'station_id':station_id, 'latitude':lat,
+    'longitude':lon, 'elevation':elev, 'date_time':date_time, 'day':day,
+    'time_utc':time_utc, 'wind_direction':wind_dir,'wind_speed':wind_spd,
+    'wx1':wx1, 'wx2':wx2, 'skyc1':skyc1, 'skylev1':skylev1,'skyc2':skyc2,
+    'skylev2':skylev2, 'skyc3':skyc3, 'skylev3': skylev3, 'skyc4':skyc4,
+    'skylev4':skylev4, 'cloudcover':cloudcover, 'temperature':temp,
+    'dewpoint':dewp, 'altimeter':altim, 'wx_symbol1':wx1_wmo,
+    'wx_symbol2':wx2_wmo}, index = station_id)
+
+    #Calculate the sea level pressure
+    df['sea_level_pressure'] = altimeter_to_slp(altim*units('inHg'),
+    elev*units('meters'), temp*units('degC')).magnitude
+
+    #Convert the datetime string to a datetime object
+    df['date_time'] = pd.to_datetime(myfile.name[-17:-8] + df['time_utc'], format = "%Y%m%d_%H%M", exact=False)
+
+    #Set the units for the dataframe
+    df.units = col_units
+
+    #Drop duplicates
+    df = df.drop_duplicates(subset = ['date_time','latitude', 'longitude'], keep = 'last')
+
+    #Round to 2 decimal points
+    df['altimeter'] = df.altimeter.round(2)
+    df['sea_level_pressure'] = df.sea_level_pressure.round(2)
+
+    return df

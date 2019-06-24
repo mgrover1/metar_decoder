@@ -1,6 +1,6 @@
 grammar METAR
 ob       <- metar siteid datetime auto wind vis run curwx skyc temp_dewp altim remarks end
-metar    <- (("METAR" / "SPECI"))?
+metar    <- (("METAR" / "SPECI"))? (" AUTO" / " COR")?
 sep      <- " "+
 siteid   <- sep? [0-9A-Z] [0-9A-Z] [0-9A-Z] [0-9A-Z]
 datetime <- sep [\d]+ "Z"
@@ -15,10 +15,10 @@ run      <- ((sep "R" [LRC]? [\d] [\d] [LRC]? "/" ([\d] [\d] [\d] [\d] "V")? ["M
 curwx    <- (((sep (wx))*))?
 wx       <- (([-+] / "VC")? ("MI" / "PR" / "DR" / "BL" / "SH" / "TS" / "FG" / "TS" / "FZ" / "RA" / "BR" / "HZ" / "SN") ([-+])? ("RA" / "BR" / "DZ" / "FG" / "FU" / "VA" / "DU" / "SA" / "SA" / "HZ" / "PY")?)
 skyc     <- ((sep (cover))*)?
-cover    <- (("FEW" / "SCT" / "BKN" / "OVC" / "VV" / "///") [\d]?+ ("TCU" / "CB" / "///")?) / ("CLR" / "SKC" / "NSC" / "NCD") / wx / "//"
-temp_dewp <- ((sep temp "/" dewp))?
-temp     <- ([M])?  [\d]? [\d]?
-dewp     <- ([M])?  [\d]? [\d]?
-altim    <- ((sep [QA] [\d] [\d] [\d] [\d] "="?))?
+cover    <- (("FEW" / "SCT" / "BKN" / "OVC" / "VV" / "///") ([\d]*)? ("TCU" / "CB" / "///")?) / ("CLR" / "SKC" / "NSC" / "NCD") / wx / "//"
+temp_dewp <- ((sep "//"? temp "/" dewp "//"?))?
+temp     <- (([M])?  [\d]? [\d]?)
+dewp     <- (([M])?  [\d]? [\d]?)
+altim    <- ((sep? ["Q" / "A"] [\d] [\d] [\d] [\d] "="?))?
 remarks  <- ((sep? ("RMK" / ("NOSIG"*)) .*))?
 end      <- ((sep? "="))?

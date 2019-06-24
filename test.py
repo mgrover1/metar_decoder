@@ -35,13 +35,13 @@ def test3():
     assert df.temperature.values == 19
     assert df.dewpoint.values == 19
     assert df.altimeter.values == 29.95
-    assert df.sea_level_pressure.values == 1014
+    assert df.sea_level_pressure.values == 1014.5
 
 def test4():
     df = parse_metar("KLAS 102156Z VRB03KT 10SM BKN250 34/M06 A3007 RMK AO2 SLP154 T03441061", master, True)
     np.testing.assert_equal(df.wind_direction.values, np.nan)
     assert df.wind_speed.values == 3
-    assert df.sea_level_pressure.values == 1013
+    assert df.sea_level_pressure.values == 1013.1
     assert df.dewpoint.values == -6
 
 def test5():

@@ -143,7 +143,7 @@ def altimeter_to_slp(altim, elev, T):
     -------
     This function is implemented using the following equations from Wallace and Hobbs (1977)
 
-    Equatino 2.29
+    Equation 2.29
     .. math:: \Delta z = Z_{2} - Z_{1} = \frac{R_{d} \bar T_{v}}{g_0}ln\left(\frac{p_{1}}{p_{2}} \right) = \bar H ln \left (\frac {p_{1}}{p_{2}} \right)
 
     Equation 2.31
@@ -158,7 +158,7 @@ def altimeter_to_slp(altim, elev, T):
     #Bring in the neccessary libraries
     from metpy.units import units
     import metpy.constants as mpconsts
-    from math import exp
+    from numpy import exp
 
     #Make sure the temperature is in Kelvin
     T = T.to('kelvin')
