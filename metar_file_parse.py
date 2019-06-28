@@ -1,4 +1,5 @@
-def text_file_parse(file):
+from datetime import datetime
+def text_file_parse(file, year = datetime.now().year, month = datetime.now().month):
     """ Takes a text file taken from the NOAA PORT system containing
     METAR data and creates a dataframe with all the observations
 
@@ -14,11 +15,13 @@ def text_file_parse(file):
 
     """
     import pandas as pd
-    from metar_parse import parse_metar
-    from process_stations import StationLookup
+    import numpy as np
+    from metar_decode import ParseError
+    from metar_parse import parse_metar_to_named_tuple
+    from process_stations import station_dict
     from datetime import datetime
     from calculations import altimeter_to_slp
-    from metpy.units import units
+    from metpy.units import units, pandas_dataframe_to_unit_arrays
 
     #Function to merge METARs
     def merge(x, key='     '):
@@ -54,9 +57,7 @@ def text_file_parse(file):
         None
 
     #Create a dictionary with all the station name, locations, and elevations
-    master = StationLookup().sources[0][1]
-    for station in StationLookup().sources:
-        master = {**master, **station[1]}
+    master = station_dict()
 
     #Setup lists to append the data to
     station_id = []
@@ -64,12 +65,11 @@ def text_file_parse(file):
     lon = []
     elev = []
     date_time = []
-    day =[]
-    time_utc = []
     wind_dir = []
     wind_spd = []
-    wx1 = []
-    wx2 = []
+    current_wx1= []
+    current_wx2 = []
+    current_wx3 = []
     skyc1 = []
     skylev1 = []
     skyc2 = []
@@ -82,39 +82,40 @@ def text_file_parse(file):
     temp = []
     dewp = []
     altim = []
-    wx1_wmo = []
-    wx2_wmo = []
+    current_wx1_symbol = []
+    current_wx2_symbol = []
+    current_wx3_symbol = []
 
     for metar in metars:
         try:
-            ob = parse_metar(metar, master, False)
-            station_id.append(ob[0][0])
-            lat.append(ob[1][0])
-            lon.append(ob[2][0])
-            elev.append(ob[3][0])
-            date_time.append(ob[4][0])
-            day.append(ob[5][0])
-            time_utc.append(ob[6][0])
-            wind_dir.append(ob[7][0])
-            wind_spd.append(ob[8][0])
-            wx1.append(ob[9][0])
-            wx2.append(ob[10][0])
-            skyc1.append(ob[11][0])
-            skylev1.append(ob[12][0])
-            skyc2.append(ob[13][0])
-            skylev2.append(ob[14][0])
-            skyc3.append(ob[15][0])
-            skylev3.append(ob[16][0])
-            skyc4.append(ob[17][0])
-            skylev4.append(ob[18][0])
-            cloudcover.append(ob[19][0])
-            temp.append(ob[20][0])
-            dewp.append(ob[21][0])
-            altim.append(ob[22][0])
-            wx1_wmo.append(ob[23][0])
-            wx2_wmo.append(ob[24][0])
+            metar = parse_metar_to_named_tuple(metar, master, year = year, month = month)
+            station_id.append(metar.station_id)
+            lat.append(metar.latitude)
+            lon.append(metar.longitude)
+            elev.append(metar.elevation)
+            date_time.append(metar.date_time)
+            wind_dir.append(metar.wind_direction)
+            wind_spd.append(metar.wind_speed)
+            current_wx1.append(metar.current_wx1)
+            current_wx2.append(metar.current_wx2)
+            current_wx3.append(metar.current_wx3)
+            skyc1.append(metar.skyc1)
+            skylev1.append(metar.skylev1)
+            skyc2.append(metar.skyc2)
+            skylev2.append(metar.skylev2)
+            skyc3.append(metar.skyc3)
+            skylev3.append(metar.skylev3)
+            skyc4.append(metar.skyc4)
+            skylev4.append(metar.skylev4)
+            cloudcover.append(metar.cloudcover)
+            temp.append(metar.temperature)
+            dewp.append(metar.dewpoint)
+            altim.append(metar.altimeter)
+            current_wx1_symbol.append(metar.current_wx1_symbol)
+            current_wx2_symbol.append(metar.current_wx2_symbol)
+            current_wx3_symbol.append(metar.current_wx3_symbol)
 
-        except:
+        except ParseError:
             None
 
     col_units = {
@@ -123,12 +124,11 @@ def text_file_parse(file):
     'longitude': 'degrees',
     'elevation': 'meters',
     'date_time': None,
-    'day': None,
-    'time_utc': None,
     'wind_direction': 'degrees',
     'wind_speed': 'kts',
-    'wx1': None,
-    'wx2': None,
+    'current_wx1': None,
+    'current_wx2': None,
+    'current_wx3': None,
     'skyc1': None,
     'skylev1': 'feet',
     'skyc2': None,
@@ -142,33 +142,39 @@ def text_file_parse(file):
     'dewpoint': 'degC',
     'altimeter': 'inHg',
     'sea_level_pressure': 'hPa',
-    'wx_symbol1_wmo': None,
-    'wx_symbol2_wmo': None}
+    'current_wx1_symbol': None,
+    'current_wx2_symbol': None,
+    'current_wx3_symbol': None,}
 
-    df = pd.DataFrame({'station_id':station_id, 'latitude':lat,
-    'longitude':lon, 'elevation':elev, 'date_time':date_time, 'day':day,
-    'time_utc':time_utc, 'wind_direction':wind_dir,'wind_speed':wind_spd,
-    'wx1':wx1, 'wx2':wx2, 'skyc1':skyc1, 'skylev1':skylev1,'skyc2':skyc2,
+    df = pd.DataFrame({'station_id':station_id, 'latitude':lat, 'longitude':lon,
+    'elevation':elev, 'date_time':date_time, 'wind_direction':wind_dir,
+    'wind_speed':wind_spd, 'current_wx1':current_wx1, 'current_wx2':current_wx2,
+    'current_wx3':current_wx3, 'skyc1':skyc1, 'skylev1':skylev1, 'skyc2':skyc2,
     'skylev2':skylev2, 'skyc3':skyc3, 'skylev3': skylev3, 'skyc4':skyc4,
-    'skylev4':skylev4, 'cloudcover':cloudcover, 'temperature':temp,
-    'dewpoint':dewp, 'altimeter':altim, 'wx_symbol1':wx1_wmo,
-    'wx_symbol2':wx2_wmo}, index = station_id)
+    'skylev4':skylev4, 'cloudcover':cloudcover, 'temperature':temp, 'dewpoint':dewp,
+    'altimeter':altim, 'current_wx1_symbol':current_wx2_symbol,
+    'current_wx2_symbol':current_wx2_symbol, 'current_wx3_symbol':current_wx3_symbol},
+    index = station_id)
 
-    #Calculate the sea level pressure
-    df['sea_level_pressure'] = altimeter_to_slp(altim*units('inHg'),
-    elev*units('meters'), temp*units('degC')).magnitude
-
-    #Convert the datetime string to a datetime object
-    df['date_time'] = pd.to_datetime(myfile.name[-17:-8] + df['time_utc'], format = "%Y%m%d_%H%M", exact=False)
-
-    #Set the units for the dataframe
-    df.units = col_units
-
+    try:
+        df['sea_level_pressure'] = altimeter_to_slp(
+        altim * units('inHg'),
+        elev * units('meters'),
+        temp * units('degC')).magnitude
+    except:
+        df['sea_level_pressure'] = [np.nan]
     #Drop duplicates
     df = df.drop_duplicates(subset = ['date_time','latitude', 'longitude'], keep = 'last')
 
-    #Round to 2 decimal points
     df['altimeter'] = df.altimeter.round(2)
     df['sea_level_pressure'] = df.sea_level_pressure.round(2)
+
+    #Convert the datetime string to a datetime object
+    #df['date_time'] = pd.to_datetime(myfile.name[-17:-8] + df['time_utc'], format = "%Y%m%d_%H%M", exact=False)
+    df.index = df.station_id
+
+    #Set the units for the dataframe
+    df.units = col_units
+    pandas_dataframe_to_unit_arrays(df)
 
     return df

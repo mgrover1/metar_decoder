@@ -162,6 +162,13 @@ class StationLookup:
                          for s, v in self.sites.items())
 
 
+def station_dict():
+    master = StationLookup().sources[0][1]
+    for station in StationLookup().sources:
+        master = {**master, **station[1]}
+    return master
+
+
 if __name__ == '__main__':
     import argparse
 
